@@ -1,5 +1,6 @@
-import json
 import requests
+
+from processing_json import save_result, open_json
 
 
 class ErrorSave(Exception):
@@ -9,62 +10,31 @@ class ErrorSave(Exception):
 class Parser_Metro():
     '''Класс для парсинга сайта https://online.metro-cc.ru/.'''
     def __init__(self):
-        self.cookies = {
-        'spid': '1686383066844_64d67cdbe620f71185a3008c2a6cf736_s015qsdw2iuk786v',
-        '_slid': '648429de88d87966eb025167',
-        '_gcl_au': '1.1.587489401.1686383074',
-        'metro_user_id': '4a931c48f7646f96208b3b65ad2cc116',
-        'tmr_lvid': '4d4b7920c94dd0dedfb40468457c0115',
-        'tmr_lvidTS': '1686383080944',
-        '_ym_uid': '1686383082501465087',
-        '_ym_d': '1686383082',
-        'uxs_uid': 'ac0d5b50-0762-11ee-b0bb-1395a7b7aaa9',
-        'fam_user': '6 5',
-        '_slid_server': '648429de88d87966eb025167',
-        '_gid': 'GA1.2.2124191693.1686475908',
-        '_slfreq': '633ff97b9a3f3b9e90027740%3A633ffa4c90db8d5cf00d7810%3A1686483111',
-        'metro_api_session': 'QUwpIK7k2LS1OZCiRpGzVNDUuptdJ6leI4QXCAc3',
-        '_ym_isad': '2',
-        '_ga': 'GA1.2.1549265350.1686383084',
-        'mindboxDeviceUUID': '7e5d654b-2f47-4077-927e-67ddd81b311f',
-        'directCrm-session': '%7B%22deviceGuid%22%3A%227e5d654b-2f47-4077-927e-67ddd81b311f%22%7D',
-        '_ga_VHKD93V3FV': 'GS1.1.1686472418.7.1.1686478751.0.0.0',
-        'spsc': '1686478764050_01792ab7098a9bdca65c5cab204843ac_a5476469b72f558bb72e6aae99c6a060',
-    }
+        self.session = requests.Session()
         self.headers = {
-        'authority': 'api.metro-cc.ru',
-        'accept': 'application/json, text/plain, */*',
-        'accept-language': 'ru-AU,ru;q=0.9,en-VI;q=0.8,en;q=0.7,ru-RU;q=0.6,en-US;q=0.5',
-        'content-type': 'application/json',
-        # 'cookie': 'spid=1686383066844_64d67cdbe620f71185a3008c2a6cf736_s015qsdw2iuk786v; _slid=648429de88d87966eb025167; _gcl_au=1.1.587489401.1686383074; metro_user_id=4a931c48f7646f96208b3b65ad2cc116; tmr_lvid=4d4b7920c94dd0dedfb40468457c0115; tmr_lvidTS=1686383080944; _ym_uid=1686383082501465087; _ym_d=1686383082; uxs_uid=ac0d5b50-0762-11ee-b0bb-1395a7b7aaa9; fam_user=6 5; _slid_server=648429de88d87966eb025167; _gid=GA1.2.2124191693.1686475908; _slfreq=633ff97b9a3f3b9e90027740%3A633ffa4c90db8d5cf00d7810%3A1686483111; metro_api_session=QUwpIK7k2LS1OZCiRpGzVNDUuptdJ6leI4QXCAc3; _ym_isad=2; _ga=GA1.2.1549265350.1686383084; mindboxDeviceUUID=7e5d654b-2f47-4077-927e-67ddd81b311f; directCrm-session=%7B%22deviceGuid%22%3A%227e5d654b-2f47-4077-927e-67ddd81b311f%22%7D; _ga_VHKD93V3FV=GS1.1.1686472418.7.1.1686478751.0.0.0; spsc=1686478764050_01792ab7098a9bdca65c5cab204843ac_a5476469b72f558bb72e6aae99c6a060',
-        'origin': 'https://online.metro-cc.ru',
-        'referer': 'https://online.metro-cc.ru/',
-        'sec-ch-ua': '"Not.A/Brand";v="8", "Chromium";v="114", "Google Chrome";v="114"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"Windows"',
-        'sec-fetch-dest': 'empty',
-        'sec-fetch-mode': 'cors',
-        'sec-fetch-site': 'same-site',
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-    }
-    
+            'authority': 'api.metro-cc.ru',
+            'accept': 'application/json, text/plain, */*',
+            'accept-language': 'ru-AU,ru;q=0.9,en-VI;q=0.8,en;q=0.7,ru-RU;q=0.6,en-US;q=0.5',
+            'content-type': 'application/json',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+        }
+
     def scrape_metro_shop_category(self, json_data, document):
-        '''Получаем полный блок ответа от нужного нам эндпоинта.'''
-        response = requests.post('https://api.metro-cc.ru/products-api/graph', cookies=self.cookies, headers=self.headers, json=json_data).json()
+        '''Получаем количество товара от нужного нам эндпоинта
+           и отправляем запрос на получение всех товаров.'''
+        response = self.session.post('https://api.metro-cc.ru/products-api/graph', headers=self.headers, json=json_data).json()
         quantity = response.get('data').get('category').get('filters').get('facets')[0].get('total')
         json_data['variables']['size'] = quantity
-        response = requests.post('https://api.metro-cc.ru/products-api/graph', cookies=self.cookies, headers=self.headers, json=json_data).json()
-        with open(document, 'w', encoding='utf-8') as file:
-            json.dump(response, file, ensure_ascii=False, indent=4)
-        # return response
+        response = self.session.post('https://api.metro-cc.ru/products-api/graph', headers=self.headers, json=json_data).json()
+        save_result(response, document)
 
     def save_result_json(self, document_for_preresult, document):
-        '''Достаем нужные для нас данные из json файла и сохраняем в файл с результатами.'''
-        with open(document_for_preresult, 'r', encoding='utf-8') as file:
-            products_data = json.load(file)['data']['category']['products']
+        '''Достаем нужные для нас данные
+           из json файла и сохраняем в файл с результатами.'''
+        products_data = open_json(document_for_preresult)
 
         if len(products_data) != 0:
-            data = {}           
+            data = {}
             for item in products_data:
                 product_id = item.get('id')
                 product_name = item.get('name')
@@ -72,7 +42,7 @@ class Parser_Metro():
                 product_manufacturer = item.get('manufacturer').get('name')
                 product_price = item.get('stocks')[0].get('prices_per_unit').get('old_price')
                 # если основная цена равна null, то скидки на товар нет и его регулярная цена равна цене в нынешний момент
-                if product_price == None:
+                if product_price is None:
                     product_price = item.get('stocks')[0].get('prices_per_unit').get('offline')['price']
                     product_price_discount = None
                 else:
@@ -85,9 +55,7 @@ class Parser_Metro():
                     'price': product_price,
                     'price_discount': product_price_discount
                 }
-
-            with open(document, 'w', encoding='utf-8') as file:
-                json.dump(data, file, ensure_ascii=False, indent=4)
+            save_result(data, document)
         else:
             raise ErrorSave
 
